@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="referrer" content="origin" />
+<title>NODE/// — Resultado del pago</title>
+<style>
+  :root {
+    --bg: #0d0f12; --surface: #141719; --card: #1a1d21; --border: #252a2f;
+    --accent: #00e5b4; --danger: #ff4d4d; --warn: #f5a623;
+    --text: #e8eaed; --muted: #6b7280;
+    --mono: 'JetBrains Mono', monospace; --sans: 'Inter', system-ui, sans-serif;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--sans); min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 2rem; }
+
+  .result-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+    padding: 2.5rem; width: 100%; max-width: 560px; display: flex; flex-direction: column; gap: 1.4rem;
+  }
+  .result-icon { font-size: 3rem; text-align: center; }
+  .result-title { font-size: 1.4rem; font-weight: 800; text-align: center; letter-spacing: -0.02em; }
+  .result-title.approved { color: var(--accent); }
+  .result-title.cancelled { color: var(--danger); }
+  .result-title.pending   { color: var(--warn); }
+
+  .params-box {
+    background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+    padding: 1rem 1.2rem;
+  }
+  .params-label { font-family: var(--mono); font-size: 0.7rem; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 0.7rem; }
+  .param-row { display: flex; justify-content: space-between; font-size: 0.82rem; padding: 4px 0; border-bottom: 1px solid var(--border); }
+  .param-row:last-child { border-bottom: none; }
+  .param-key { color: var(--muted); font-family: var(--mono); font-size: 0.75rem; }
+  .param-val { color: var(--text); font-family: var(--mono); font-size: 0.75rem; word-break: break-all; text-align: right; max-width: 60%; }
+  .param-val.green { color: var(--accent); }
+  .param-val.red   { color: var(--danger); }
+
+  .response-box {
+    background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+    padding: 1rem 1.2rem; font-family: var(--mono); font-size: 0.75rem;
+    color: var(--accent); white-space: pre-wrap; overflow-x: auto; max-height: 320px; overflow-y: auto;
+    line-height: 1.6;
+  }
+  .response-label { font-family: var(--mono); font-size: 0.7rem; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 0.5rem; }
+
+  .spinner { width: 28px; height: 28px; border: 3px solid rgba(0,229,180,0.2); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; margin: 0 auto; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .back-btn {
+    background: var(--accent); color: #000; border: none; border-radius: 10px;
+    padding: 13px; font-family: var(--mono); font-weight: 700; font-size: 0.88rem;
+    cursor: pointer; text-align: center; text-decoration: none; display: block;
+    transition: background 0.2s;
+  }
+  .back-btn:hover { background: #00b38a; }
+  .back-btn.secondary { background: transparent; border: 1px solid var(--border); color: var(--muted); }
+  .back-btn.secondary:hover { border-color: var(--muted); color: var(--text); }
+</style>
+</head>
+<body>
+
+<div class="result-card" id="result-card">
+  <div class="result-icon">⏳</div>
+  <div class="result-title pending" id="result-title">Confirmando pago...</div>
+  <div class="spinner" id="spinner"></div>
+</div>
+
+<script>
+// ── OBTENER PARÁMETROS DE LA URL ───────────────────────────────────────────
+function getParam(name) {
+  return new URLSearchParams(window.location.search).get(name);
+}
+
+const transactionId    = getParam('id');
+const clientTxId       = getParam('clientTransactionId');
+
+// ── CONFIRMAR CON EL SERVIDOR ──────────────────────────────────────────────
+async function confirmarPago() {
+  const card = document.getElementById('result-card');
+
+  // Mostrar parámetros recibidos
+  const paramsHtml = `
+    <div class="params-box">
+      <div class="params-label">// PARÁMETROS RECIBIDOS DE PAYPHONE</div>
+      <div class="param-row"><span class="param-key">id (transactionId)</span><span class="param-val">${transactionId || '—'}</span></div>
+      <div class="param-row"><span class="param-key">clientTransactionId</span><span class="param-val">${clientTxId || '—'}</span></div>
+    </div>
+  `;
+
+  if (!transactionId || !clientTxId) {
+    card.innerHTML = `
+      <div class="result-icon">⚠️</div>
+      <div class="result-title pending">Parámetros incompletos</div>
+      ${paramsHtml}
+      <p style="color:var(--muted);font-size:0.85rem;text-align:center;">No se recibieron los parámetros necesarios de Payphone.</p>
+      <a href="/" class="back-btn">← Volver al catálogo</a>
+    `;
+    return;
+  }
+
+  try {
+    // POST al servidor Python que llama a Payphone /api/confirm
+    const resp = await fetch('/api/confirm', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: parseInt(transactionId), clientTxId })
+    });
+
+    const result = await resp.json();
+    const data   = result.data || {};
+    const status = data.statusCode; // 3=Aprobada, 2=Cancelada
+
+    const approved  = status === 3;
+    const cancelled = status === 2;
+
+    card.innerHTML = `
+      <div class="result-icon">${approved ? '✅' : cancelled ? '❌' : '⚠️'}</div>
+      <div class="result-title ${approved ? 'approved' : cancelled ? 'cancelled' : 'pending'}">
+        ${approved ? '¡Pago aprobado!' : cancelled ? 'Pago cancelado' : 'Estado desconocido'}
+      </div>
+
+      ${paramsHtml}
+
+      <div class="params-box">
+        <div class="params-label">// DETALLE DE LA TRANSACCIÓN</div>
+        <div class="param-row"><span class="param-key">transactionStatus</span><span class="param-val ${approved?'green':'red'}">${data.transactionStatus || '—'}</span></div>
+        <div class="param-row"><span class="param-key">statusCode</span><span class="param-val">${data.statusCode ?? '—'}</span></div>
+        <div class="param-row"><span class="param-key">authorizationCode</span><span class="param-val green">${data.authorizationCode || '—'}</span></div>
+        <div class="param-row"><span class="param-key">amount</span><span class="param-val">$${data.amount ? (data.amount/100).toFixed(2) : '—'}</span></div>
+        <div class="param-row"><span class="param-key">cardBrand</span><span class="param-val">${data.cardBrand || '—'}</span></div>
+        <div class="param-row"><span class="param-key">lastDigits</span><span class="param-val">${data.lastDigits || '—'}</span></div>
+        <div class="param-row"><span class="param-key">transactionId</span><span class="param-val">${data.transactionId || transactionId}</span></div>
+        <div class="param-row"><span class="param-key">clientTransactionId</span><span class="param-val">${data.clientTransactionId || clientTxId}</span></div>
+        <div class="param-row"><span class="param-key">date</span><span class="param-val">${data.date || '—'}</span></div>
+      </div>
+
+      <div>
+        <div class="response-label">// RESPUESTA COMPLETA DEL API PAYPHONE</div>
+        <pre class="response-box">${JSON.stringify(data, null, 2)}</pre>
+      </div>
+
+      <a href="/" class="back-btn">${approved ? '🛍️ Seguir comprando' : '← Volver al catálogo'}</a>
+    `;
+
+  } catch(err) {
+    card.innerHTML = `
+      <div class="result-icon">❌</div>
+      <div class="result-title cancelled">Error al confirmar</div>
+      <p style="color:var(--muted);font-size:0.85rem;text-align:center;">${err.message}</p>
+      <a href="/" class="back-btn secondary">← Volver al catálogo</a>
+    `;
+  }
+}
+
+confirmarPago();
+</script>
+</body>
+</html>
