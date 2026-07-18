@@ -1,13 +1,19 @@
 """
 NODE/// — Backend Payphone
-Único punto de entrada Python que Vercel reconoce (api/index.py con
-una app Flask). Reemplaza a los archivos separados config.py / confirm.py
-que usaban el formato antiguo de funciones Python.
+Vercel enruta TODO el tráfico a esta función Flask (comportamiento por
+defecto cuando detecta un framework Python). Por eso este archivo sirve
+tanto las páginas HTML como los endpoints /api/*.
 """
 
-from flask import Flask, request, jsonify
+import os
 from datetime import datetime
+
+from flask import Flask, request, jsonify, send_from_directory
 import requests
+
+# Carpeta "pages" está un nivel arriba de este archivo (api/index.py -> ../pages)
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+PAGES_DIR = os.path.join(BASE_DIR, "pages")
 
 app = Flask(__name__)
 
@@ -20,6 +26,17 @@ HEADERS = {
     "Authorization": f"Bearer {PAYPHONE_TOKEN}",
     "Content-Type": "application/json",
 }
+
+
+# ─── PÁGINAS HTML ────────────────────────────────────────────────────────────
+@app.route("/")
+def index():
+    return send_from_directory(PAGES_DIR, "index.html")
+
+
+@app.route("/response")
+def response_page():
+    return send_from_directory(PAGES_DIR, "response.html")
 
 
 # ─── API: CONFIRMAR TRANSACCIÓN ─────────────────────────────────────────────
