@@ -366,12 +366,12 @@
 
       <!-- NUEVO: Mensaje de la Opción B oculto por defecto -->
       <div id="pistas-cupon-texto" style="display: none; font-family: var(--mono); font-size: 0.68rem; color: var(--warn); background: rgba(245,166,35,0.05); border: 1px dashed rgba(245,166,35,0.2); padding: 8px; border-radius: 6px; margin-bottom: 10px; line-height: 1.4;">
-        💡 Pistas: Prueba escribiendo los códigos del equipo: <strong>DIEGO</strong>, <strong>JUANITO</strong> o <strong>ANGIE</strong> para activar descuentos especiales.
+        💡 Pistas: Prueba escribiendo los códigos del equipo: <strong>DIEGO</strong>, <strong>JUANITO</strong> o <strong>ANGIE</strong> para activar descuentos especiales. Estos descuentos varian entre 20%,30% y 50% y solo se tendra la oportunidad de escribir una sola vez. 
       </div>
 
       <div class="coupon-row">
         <input type="text" id="cart-coupon-input" class="coupon-input">
-        <button onclick="aplicarCuponCarrito()" class="coupon-apply-btn">aplicar</button>
+        <button id="cart-coupon-apply-btn" onclick="aplicarCuponCarrito()" class="coupon-apply-btn">aplicar</button>
       </div>
       <div id="cart-coupon-msg" class="coupon-msg"></div>
     </div>
@@ -440,6 +440,8 @@ let cart = {};
 let ppbInstance = null;
 // MODIFICADO: Ahora guardamos el valor decimal del descuento (0.20 para Diego, 0.30 Juanito, 0.50 Angie)
 let porcentajeDescuento = 0.00;
+let couponLocked = false;
+let couponLockedCode = "";
 
 const getCart  = () => Object.values(cart);
 const getProductById = id => PRODUCTS.find(product => product.id === id);
@@ -448,6 +450,30 @@ const getStockLimit = id => {
   return product ? product.stockQty : 0;
 };
 const getCartQty = id => cart[id] ? cart[id].qty : 0;
+const lockCouponInput = (code) => {
+  couponLocked = true;
+  couponLockedCode = code;
+
+  const input = document.getElementById('cart-coupon-input');
+  const applyBtn = document.getElementById('cart-coupon-apply-btn');
+
+  if (input) {
+    input.value = code;
+    input.readOnly = true;
+  }
+  if (applyBtn) applyBtn.disabled = true;
+};
+
+const unlockCouponInput = () => {
+  couponLocked = false;
+  couponLockedCode = "";
+
+  const input = document.getElementById('cart-coupon-input');
+  const applyBtn = document.getElementById('cart-coupon-apply-btn');
+
+  if (input) input.readOnly = false;
+  if (applyBtn) applyBtn.disabled = false;
+};
 // MODIFICADO: El total descuenta el porcentaje dinámico asignado
 const getTotal = () => {
   const subtotal = getCart().reduce((s, i) => s + i.price * i.qty, 0);
@@ -511,6 +537,7 @@ function updateUI() {
   if (items.length === 0) {
     couponSection.style.display = "none";
     porcentajeDescuento = 0.00; // Resetear
+    unlockCouponInput();
     document.getElementById('cart-coupon-input').value = "";
     document.getElementById('cart-coupon-msg').style.display = "none";
   } else {
@@ -557,6 +584,15 @@ function togglePistasCupon() {
 function aplicarCuponCarrito() {
   const input = document.getElementById('cart-coupon-input').value.trim().toUpperCase();
   const msg = document.getElementById('cart-coupon-msg');
+
+  // NUEVO: Verificar si ya hay un cupón bloqueado --ac
+  if (couponLocked) {
+    msg.style.display = "block";
+    msg.style.color = "var(--warn)";
+    msg.innerText = `Ya aplicaste el cupón ${couponLockedCode}. Vacía el carrito para usar otro.`;
+    showToast('Ya tienes un cupón de pista activo', 'info');
+    return;
+  }
   
   msg.style.display = "block";
   
@@ -564,18 +600,21 @@ function aplicarCuponCarrito() {
     porcentajeDescuento = 0.20;
     msg.style.color = "var(--accent)";
     msg.innerText = "✓ Cupón DIEGO aplicado: 20%";
+    lockCouponInput(input); // Bloquear el input para que no se pueda cambiar
     showToast('Cupón de Diego aplicado (20%)', 'success');
     updateUI();
   } else if (input === "JUANITO") {
     porcentajeDescuento = 0.30;
     msg.style.color = "var(--accent)";
     msg.innerText = "✓ Cupón JUANITO aplicado: 30%";
+    lockCouponInput(input); // Bloquear el input para que no se pueda cambiar
     showToast('Cupón de Juanito aplicado (30%)', 'success');
     updateUI();
   } else if (input === "ANGIE") {
     porcentajeDescuento = 0.50;
     msg.style.color = "var(--accent)";
     msg.innerText = "✓ Cupón ANGIE aplicado: 50% 🔥";
+    lockCouponInput(input); //
     showToast('¡Cupón de Angie aplicado (50%)!', 'success');
     updateUI();
   } 
