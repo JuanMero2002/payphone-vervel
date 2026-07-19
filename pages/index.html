@@ -254,9 +254,56 @@
     margin-top: 6px;
     display: none;
   }
+
+  /* NUEVO: Estilos y efectos para Alertas Flotantes Avanzadas */
+  @keyframes slideIn {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+  }
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20%, 60% { transform: translateX(-6px); }
+    40%, 80% { transform: translateX(6px); }
+  }
+  .toast-premium {
+    animation: slideIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+    min-width: 280px;
+    padding: 14px 18px;
+    border-radius: 8px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 0.8rem;
+    font-weight: bold;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    pointer-events: auto;
+    background: var(--card);
+    border: 1px solid var(--border);
+  }
+  .toast-premium-success {
+    border-left: 5px solid var(--accent);
+    color: var(--accent);
+    background: #0d1714;
+  }
+  .toast-premium-error {
+    border-left: 5px solid var(--danger);
+    color: var(--danger);
+    background: #1c1113;
+    animation: slideIn 0.4s ease forwards, shake 0.4s ease-in-out;
+  }
+  .toast-premium-info {
+    border-left: 5px solid var(--warn);
+    color: var(--warn);
+    background: #1c160e;
+  }
 </style>
 </head>
 <body>
+
+<!-- NUEVO: Contenedor flotante superior derecho para los Toasts animados -->
+<div id="toast-notif-container" style="position: fixed; top: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; pointer-events: none;"></div>
 
 <!-- NAV -->
 <nav>
@@ -302,9 +349,26 @@
   <div class="cart-items" id="cart-items"></div>
   <div class="cart-footer">
     
-    <!-- NUEVO: Contenedor del cupón inyectado justo encima del total -->
+   <!-- Contenedor del cupón inyectado justo encima del total -->
     <div class="coupon-container" id="coupon-container" style="display: none;">
-      <label class="coupon-label"> ¿TIENES UN CUPÓN?</label>
+      
+      <!-- Botón interactivo para el Cofre Sorpresa -->
+      <div style="margin-bottom: 12px; text-align: center;">
+        <button id="btn-cofre" type="button" style="background: var(--card); border: 2px dashed var(--accent); color: var(--accent); padding: 8px 12px; border-radius: 8px; cursor: pointer; font-family: var(--mono); font-size: 0.75rem; font-weight: bold; width: 100%; transition: all var(--t);">
+            🎁 ¡Abrir Cofre Sorpresa!
+        </button>
+      </div>
+
+      <!-- MODIFICADO: El texto ahora es un botón interactivo -->
+      <button type="button" onclick="togglePistasCupon()" style="background: none; border: none; padding: 0; display: block; font-family: var(--mono); color: var(--muted); font-size: 0.72rem; margin-bottom: 6px; letter-spacing: 0.02em; cursor: pointer; text-align: left; transition: color var(--t);" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--muted)'">
+        ¿TIENES UN CUPÓN? <span id="flecha-pistas" style="font-size: 0.6rem; margin-left: 4px;">▶</span>
+      </button>
+
+      <!-- NUEVO: Mensaje de la Opción B oculto por defecto -->
+      <div id="pistas-cupon-texto" style="display: none; font-family: var(--mono); font-size: 0.68rem; color: var(--warn); background: rgba(245,166,35,0.05); border: 1px dashed rgba(245,166,35,0.2); padding: 8px; border-radius: 6px; margin-bottom: 10px; line-height: 1.4;">
+        💡 Pistas: Prueba escribiendo los códigos del equipo: <strong>DIEGO</strong>, <strong>JUANITO</strong> o <strong>ANGIE</strong> para activar descuentos especiales.
+      </div>
+
       <div class="coupon-row">
         <input type="text" id="cart-coupon-input" class="coupon-input">
         <button onclick="aplicarCuponCarrito()" class="coupon-apply-btn">aplicar</button>
@@ -356,8 +420,6 @@
   </div>
 </div>
 
-<!-- TOAST -->
-<div id="toast-container"></div>
 
 <script>
 // ── PRODUCTOS ──────────────────────────────────────────────────────────────
@@ -451,6 +513,21 @@ function updateUI() {
   }
 }
 
+// NUEVO: Función para mostrar/ocultar las pistas de los cupones
+function togglePistasCupon() {
+  const contenedorTexto = document.getElementById('pistas-cupon-texto');
+  const flecha = document.getElementById('flecha-pistas');
+  
+  if (contenedorTexto.style.display === "none") {
+    contenedorTexto.style.display = "block";
+    flecha.textContent = "▼"; // Cambia la flecha hacia abajo cuando se abre
+    showToast('Pistas de cupones desplegadas', 'info', 2000);
+  } else {
+    contenedorTexto.style.display = "none";
+    flecha.textContent = "▶"; // Vuelve a la flecha original
+  }
+}
+
 // MODIFICADO: Lógica multi-cupón dinámica con Diego (20%), Juanito (30%) y Angie (50%)
 function aplicarCuponCarrito() {
   const input = document.getElementById('cart-coupon-input').value.trim().toUpperCase();
@@ -476,7 +553,26 @@ function aplicarCuponCarrito() {
     msg.innerText = "✓ Cupón ANGIE aplicado: -50% 🔥";
     showToast('¡Cupón de Angie aplicado (50%)!', 'success');
     updateUI();
-  } else if (input === "") {
+  } 
+  // ── NUEVOS CUPONES EXCLUSIVOS DEL COFRE ──
+  else if (input === "NODE10") {
+    porcentajeDescuento = 0.10;
+    msg.style.color = "var(--accent)";
+    msg.innerText = "🎁 ¡Suerte! Cupón secreto NODE10 aplicado: -10%";
+    updateUI();
+  } else if (input === "NODE15") {
+    porcentajeDescuento = 0.15;
+    msg.style.color = "var(--accent)";
+    msg.innerText = "🎁 ¡Genial! Cupón secreto NODE15 aplicado: -15%";
+    updateUI();
+  } else if (input === "NODEX") {
+    porcentajeDescuento = 0.25;
+    msg.style.color = "var(--accent)";
+    msg.innerText = "🔥 ¡PREMIO MAYOR! Cupón secreto NODEX aplicado: -25%";
+    updateUI();
+  } 
+  // ─────────────────────────────────────────
+  else if (input === "") {
     msg.style.color = "var(--warn)";
     msg.innerText = "Escribe un código.";
   } else {
@@ -599,14 +695,71 @@ function closeModal() {
 }
 
 // ── TOAST ──────────────────────────────────────────────────────────────────
-function showToast(msg, type = 'info', ms = 3500) {
-  const c = document.getElementById('toast-container');
-  const t = document.createElement('div');
-  t.className = `toast ${type}`;
-  t.textContent = msg;
-  c.appendChild(t);
-  setTimeout(() => t.remove(), ms);
+// REEMPLAZADO: Nueva función showToast optimizada con animaciones avanzadas y Audio Sintetizado Nativo
+function showToast(msg, type = 'info', ms = 4000) {
+  const container = document.getElementById('toast-notif-container');
+  if (!container) return;
+
+  const toast = document.createElement('div');
+  const mapType = type === 'success' ? 'success' : type === 'error' ? 'error' : 'info';
+  toast.className = `toast-premium toast-premium-${mapType}`;
+  
+  const icon = mapType === 'success' ? '✅' : mapType === 'error' ? '❌' : 'ℹ️';
+  toast.innerHTML = `<span>${icon}</span><span>${msg}</span>`;
+  
+  container.appendChild(toast);
+
+  // Sistema de Audio Web Sintetizado (Nativo del navegador)
+  try {
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const oscillator = audioCtx.createOscillator();
+    const gainNode = audioCtx.createGain();
+    oscillator.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
+    
+    if (mapType === 'success') {
+      oscillator.frequency.setValueAtTime(587.33, audioCtx.currentTime); 
+      oscillator.frequency.setValueAtTime(880.00, audioCtx.currentTime + 0.08); 
+      gainNode.gain.setValueAtTime(0.05, audioCtx.currentTime);
+      oscillator.start();
+      oscillator.stop(audioCtx.currentTime + 0.18);
+    } else if (mapType === 'error') {
+      oscillator.frequency.setValueAtTime(180, audioCtx.currentTime);
+      oscillator.frequency.exponentialRampToValueAtTime(80, audioCtx.currentTime + 0.2);
+      gainNode.gain.setValueAtTime(0.15, audioCtx.currentTime);
+      oscillator.start();
+      oscillator.stop(audioCtx.currentTime + 0.22);
+    }
+  } catch (e) { console.warn("Audio Context bloqueado o no soportado."); }
+
+  setTimeout(() => {
+    toast.style.transition = "all 0.4s ease";
+    toast.style.opacity = "0";
+    toast.style.transform = "translateX(50px)";
+    setTimeout(() => toast.remove(), 400);
+  }, ms);
 }
+
+// MODIFICADO: Ahora el cofre da cupones exclusivos que no te sabes
+document.addEventListener('DOMContentLoaded', () => {
+  const btnCofre = document.getElementById('btn-cofre');
+  if (btnCofre) {
+    btnCofre.addEventListener('click', () => {
+      // Cupones de la suerte aleatorios
+      const opciones = ['NODE10', 'NODE15', 'NODEX'];
+      const cupónAleatorio = opciones[Math.floor(Math.random() * opciones.length)];
+      
+      const input = document.getElementById('cart-coupon-input');
+      if (input) {
+        input.value = cupónAleatorio;
+        showToast(`🎁 ¡Cofre abierto! Te ganaste el cupón secreto: ${cupónAleatorio}`, 'success');
+        
+        // Lo aplica automáticamente en la caja
+        aplicarCuponCarrito();
+      }
+    });
+  }
+});
 
 // ── INIT ───────────────────────────────────────────────────────────────────
 renderCatalog();
