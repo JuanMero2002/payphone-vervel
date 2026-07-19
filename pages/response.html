@@ -115,6 +115,39 @@ async function confirmarPago() {
     const approved  = status === 3;
     const cancelled = status === 2;
 
+    // NUEVO: Cálculos matemáticos limpios para reconstruir los cupones si el total no es entero relativo al carrito anterior
+    let filasDescuentoHtml = '';
+    if (approved && data.amount) {
+      const precioFinal = data.amount / 100;
+      
+      // Intentamos recuperar la referencia guardada temporalmente por la app en sessionStorage
+      // Tu compañero en el backend también enviará el valor base si es necesario, pero esto cubre el frontend de inmediato.
+      let subtotalOriginal = precioFinal;
+      let descuentoAplicado = 0;
+      let etiquetaPorcentaje = '';
+
+      // Si el cliente modificó el total con un cupón, detectamos cuál coincide según el monto enviado a la pasarela
+      // Esto lee la transacción para saber si venía alterada
+      if (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('node_subtotal')) {
+        const subBase = parseFloat(sessionStorage.getItem('node_subtotal'));
+        // Si el precio cobrado es menor al subtotal original del carrito, calculamos el porcentaje
+        if (precioFinal < subBase) {
+          subtotalOriginal = subBase;
+          descuentoAplicado = subtotalOriginal - precioFinal;
+          const ratio = Math.round((descuentoAplicado / subtotalOriginal) * 100);
+          etiquetaPorcentaje = ` (${ratio}%)`;
+        }
+      }
+
+      // Si se encuentra un descuento válido, estructuramos las nuevas filas visuales para la tabla
+      if (descuentoAplicado > 0) {
+        filasDescuentoHtml = `
+          <div class="param-row"><span class="param-key">subtotalOriginal</span><span class="param-val">$${subtotalOriginal.toFixed(2)}</span></div>
+          <div class="param-row"><span class="param-key">discountApplied${etiquetaPorcentaje}</span><span class="param-val" style="color:var(--danger)">-$${descuentoAplicado.toFixed(2)}</span></div>
+        `;
+      }
+    }
+
     card.innerHTML = `
       <div class="result-icon">${approved ? '✅' : cancelled ? '❌' : '⚠️'}</div>
       <div class="result-title ${approved ? 'approved' : cancelled ? 'cancelled' : 'pending'}">
@@ -128,6 +161,10 @@ async function confirmarPago() {
         <div class="param-row"><span class="param-key">transactionStatus</span><span class="param-val ${approved?'green':'red'}">${data.transactionStatus || '—'}</span></div>
         <div class="param-row"><span class="param-key">statusCode</span><span class="param-val">${data.statusCode ?? '—'}</span></div>
         <div class="param-row"><span class="param-key">authorizationCode</span><span class="param-val green">${data.authorizationCode || '—'}</span></div>
+        
+        <!-- NUEVO: Inyección limpia de las filas del desglose original y el descuento acumulado -->
+        ${filasDescuentoHtml}
+
         <div class="param-row"><span class="param-key">amount</span><span class="param-val">$${data.amount ? (data.amount/100).toFixed(2) : '—'}</span></div>
         <div class="param-row"><span class="param-key">cardBrand</span><span class="param-val">${data.cardBrand || '—'}</span></div>
         <div class="param-row"><span class="param-key">lastDigits</span><span class="param-val">${data.lastDigits || '—'}</span></div>

@@ -198,6 +198,62 @@
     .hero, .filter-bar, .catalog { padding-left: 1rem; padding-right: 1rem; }
     .cart-drawer { width: 100%; right: -100%; }
   }
+
+  /* NUEVO: Estilos para la caja de cupones */
+  .coupon-container {
+    padding: 1rem 0;
+    border-top: 1px dashed var(--border);
+    margin-top: 5px;
+  }
+  .coupon-label {
+    display: block;
+    font-family: var(--mono);
+    color: var(--muted);
+    font-size: 0.72rem;
+    margin-bottom: 6px;
+    letter-spacing: 0.02em;
+  }
+  .coupon-row {
+    display: flex;
+    gap: 8px;
+  }
+  .coupon-input {
+    flex: 1;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 12px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    transition: border-color var(--t);
+  }
+  .coupon-input:focus {
+    border-color: var(--accent);
+    outline: none;
+  }
+  .coupon-apply-btn {
+    background: transparent;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    border-radius: 8px;
+    padding: 0 14px;
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    cursor: pointer;
+    transition: all var(--t);
+  }
+  .coupon-apply-btn:hover {
+    background: var(--accent);
+    color: #000;
+  }
+  .coupon-msg {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    margin-top: 6px;
+    display: none;
+  }
 </style>
 </head>
 <body>
@@ -245,6 +301,17 @@
   </div>
   <div class="cart-items" id="cart-items"></div>
   <div class="cart-footer">
+    
+    <!-- NUEVO: Contenedor del cupón inyectado justo encima del total -->
+    <div class="coupon-container" id="coupon-container" style="display: none;">
+      <label class="coupon-label"> ¿TIENES UN CUPÓN?</label>
+      <div class="coupon-row">
+        <input type="text" id="cart-coupon-input" class="coupon-input">
+        <button onclick="aplicarCuponCarrito()" class="coupon-apply-btn">aplicar</button>
+      </div>
+      <div id="cart-coupon-msg" class="coupon-msg"></div>
+    </div>
+
     <div class="cart-total">
       <span class="cart-total-label">TOTAL</span>
       <span class="cart-total-amount" id="cart-total">$0.00</span>
@@ -270,6 +337,13 @@
       <div class="order-summary">
         <div class="order-summary-label">// RESUMEN DEL PEDIDO</div>
         <div id="modal-items"></div>
+        
+        <!-- NUEVO: Línea de descuento en el desglose final del modal si aplica -->
+        <div id="modal-discount-line" class="order-line" style="display: none; color: var(--danger);">
+          <span id="modal-discount-lbl">Descuento</span>
+          <span id="modal-discount-val">-$0.00</span>
+        </div>
+
         <div class="order-line total">
           <span>Total</span>
           <span id="modal-total">$0.00</span>
@@ -295,16 +369,22 @@ const PRODUCTS = [
   { id:5, icon:'🔌', name:'Hub USB-C 8-en-1',           specs:'HDMI 4K · PD 100W · Gigabit Ethernet',      price:34.00, category:'conectividad',   stock:'en stock' },
   { id:6, icon:'🎧', name:'Auriculares ANC Studio',     specs:'40h batería · Bluetooth 5.3 · ANC híbrido', price:119.00,category:'audio',          stock:'en stock' },
   { id:7, icon:'📡', name:'Adaptador WiFi 6E AX3000',  specs:'USB 3.0 · 2.4/5/6 GHz · MU-MIMO',          price:42.00, category:'conectividad',   stock:'en stock' },
-  { id:8, icon:'🖨️', name:'Mousepad XL Premium',       specs:'900×400 · cosido · base antideslizante',    price:22.00, category:'periférico',     stock:'en stock' },
+  { id:8, icon:'🖨️', name:'Mousepad XL Premium',        specs:'900×400 · cosido · base antideslizante',    price:22.00, category:'periférico',     stock:'en stock' },
   { id:9, icon:'📹', name:'Webcam 4K AutoFocus',        specs:'60fps · HDR · micrófono dual',              price:87.00, category:'video',          stock:'stock bajo'},
 ];
 
 // ── CARRITO ────────────────────────────────────────────────────────────────
 let cart = {};
 let ppbInstance = null;
+// MODIFICADO: Ahora guardamos el valor decimal del descuento (0.20 para Diego, 0.30 Juanito, 0.50 Angie)
+let porcentajeDescuento = 0.00;
 
 const getCart  = () => Object.values(cart);
-const getTotal = () => getCart().reduce((s, i) => s + i.price * i.qty, 0);
+// MODIFICADO: El total descuenta el porcentaje dinámico asignado
+const getTotal = () => {
+  const subtotal = getCart().reduce((s, i) => s + i.price * i.qty, 0);
+  return subtotal * (1 - porcentajeDescuento);
+};
 
 function addToCart(id) {
   const p = PRODUCTS.find(x => x.id === id);
@@ -339,6 +419,17 @@ function updateUI() {
   document.getElementById('cart-total').textContent  = `$${total.toFixed(2)}`;
   document.getElementById('pay-btn').disabled        = items.length === 0;
 
+  // Mostrar la sección de cupón solo si hay productos en el carrito
+  const couponSection = document.getElementById('coupon-container');
+  if (items.length === 0) {
+    couponSection.style.display = "none";
+    porcentajeDescuento = 0.00; // Resetear
+    document.getElementById('cart-coupon-input').value = "";
+    document.getElementById('cart-coupon-msg').style.display = "none";
+  } else {
+    couponSection.style.display = "block";
+  }
+
   const container = document.getElementById('cart-items');
   if (items.length === 0) {
     container.innerHTML = `<div class="cart-empty"><div class="cart-empty-icon">🛒</div>Tu carrito está vacío</div>`;
@@ -357,6 +448,42 @@ function updateUI() {
         </div>
       </div>
     `).join('');
+  }
+}
+
+// MODIFICADO: Lógica multi-cupón dinámica con Diego (20%), Juanito (30%) y Angie (50%)
+function aplicarCuponCarrito() {
+  const input = document.getElementById('cart-coupon-input').value.trim().toUpperCase();
+  const msg = document.getElementById('cart-coupon-msg');
+  
+  msg.style.display = "block";
+  
+  if (input === "DIEGO") {
+    porcentajeDescuento = 0.20;
+    msg.style.color = "var(--accent)";
+    msg.innerText = "✓ Cupón DIEGO aplicado: -20%";
+    showToast('Cupón de Diego aplicado (20%)', 'success');
+    updateUI();
+  } else if (input === "JUANITO") {
+    porcentajeDescuento = 0.30;
+    msg.style.color = "var(--accent)";
+    msg.innerText = "✓ Cupón JUANITO aplicado: -30%";
+    showToast('Cupón de Juanito aplicado (30%)', 'success');
+    updateUI();
+  } else if (input === "ANGIE") {
+    porcentajeDescuento = 0.50;
+    msg.style.color = "var(--accent)";
+    msg.innerText = "✓ Cupón ANGIE aplicado: -50% 🔥";
+    showToast('¡Cupón de Angie aplicado (50%)!', 'success');
+    updateUI();
+  } else if (input === "") {
+    msg.style.color = "var(--warn)";
+    msg.innerText = "Escribe un código.";
+  } else {
+    porcentajeDescuento = 0.00;
+    msg.style.color = "var(--danger)";
+    msg.innerText = "Cupón no válido o vencido.";
+    updateUI();
   }
 }
 
@@ -395,6 +522,10 @@ function toggleCart() {
 
 // ── MODAL + CAJITA DE PAGOS ────────────────────────────────────────────────
 async function openPaymentModal() {
+  // NUEVO: Guardar el subtotal original antes de cualquier descuento en sessionStorage
+  const subtotalBase = getCart().reduce((s, i) => s + i.price * i.qty, 0);
+  sessionStorage.setItem('node_subtotal', subtotalBase);
+
   const items = getCart();
   const total = getTotal();
 
@@ -402,6 +533,19 @@ async function openPaymentModal() {
   document.getElementById('modal-items').innerHTML = items.map(i =>
     `<div class="order-line"><span>${i.name} × ${i.qty}</span><span>$${(i.price*i.qty).toFixed(2)}</span></div>`
   ).join('');
+
+  // MODIFICADO: Mostrar línea de descuento proporcional al cupón activo en el modal
+  const discLine = document.getElementById('modal-discount-line');
+  if (porcentajeDescuento > 0) {
+    const subtotalFicticio = items.reduce((s, i) => s + i.price * i.qty, 0);
+    const ahorro = subtotalFicticio * porcentajeDescuento;
+    document.getElementById('modal-discount-lbl').textContent = `Descuento cupón (${porcentajeDescuento * 100}%)`;
+    document.getElementById('modal-discount-val').textContent = `-$${ahorro.toFixed(2)}`;
+    discLine.style.display = "flex";
+  } else {
+    discLine.style.display = "none";
+  }
+
   document.getElementById('modal-total').textContent = `$${total.toFixed(2)}`;
 
   // Limpiar cajita anterior si existía
@@ -421,19 +565,17 @@ async function openPaymentModal() {
     return;
   }
 
-  // Monto en centavos (sin impuestos en este ejemplo)
+  // Monto en centavos recalculado con el descuento correspondiente
   const amountCents = Math.round(total * 100);
   const clientTxId  = 'NODE-' + Date.now().toString(36).toUpperCase();
 
   // Renderizar la cajita de Payphone usando el SDK oficial
-  // Según docs: window.addEventListener('DOMContentLoaded') ya pasó,
-  // así que instanciamos directamente.
   try {
     ppbInstance = new PPaymentButtonBox({
       token:               token,
       clientTransactionId: clientTxId,
-      amount:              amountCents,       // total en centavos
-      amountWithoutTax:    amountCents,       // sin impuesto
+      amount:              amountCents,       
+      amountWithoutTax:    amountCents,       
       currency:            "USD",
       storeId:             storeId,
       reference:           `Compra NODE/// — ${clientTxId}`,
@@ -450,6 +592,7 @@ async function openPaymentModal() {
 }
 
 function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('remove');
   document.getElementById('modal-overlay').classList.remove('open');
   document.getElementById('pp-button').innerHTML = '';
   ppbInstance = null;
