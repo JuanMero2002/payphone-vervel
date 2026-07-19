@@ -198,9 +198,112 @@
     .hero, .filter-bar, .catalog { padding-left: 1rem; padding-right: 1rem; }
     .cart-drawer { width: 100%; right: -100%; }
   }
+
+  /* NUEVO: Estilos para la caja de cupones */
+  .coupon-container {
+    padding: 1rem 0;
+    border-top: 1px dashed var(--border);
+    margin-top: 5px;
+  }
+  .coupon-label {
+    display: block;
+    font-family: var(--mono);
+    color: var(--muted);
+    font-size: 0.72rem;
+    margin-bottom: 6px;
+    letter-spacing: 0.02em;
+  }
+  .coupon-row {
+    display: flex;
+    gap: 8px;
+  }
+  .coupon-input {
+    flex: 1;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 12px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    transition: border-color var(--t);
+  }
+  .coupon-input:focus {
+    border-color: var(--accent);
+    outline: none;
+  }
+  .coupon-apply-btn {
+    background: transparent;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    border-radius: 8px;
+    padding: 0 14px;
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    cursor: pointer;
+    transition: all var(--t);
+  }
+  .coupon-apply-btn:hover {
+    background: var(--accent);
+    color: #000;
+  }
+  .coupon-msg {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    margin-top: 6px;
+    display: none;
+  }
+
+  /* NUEVO: Estilos y efectos para Alertas Flotantes Avanzadas */
+  @keyframes slideIn {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+  }
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20%, 60% { transform: translateX(-6px); }
+    40%, 80% { transform: translateX(6px); }
+  }
+  .toast-premium {
+    animation: slideIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+    min-width: 280px;
+    padding: 14px 18px;
+    border-radius: 8px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 0.8rem;
+    font-weight: bold;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    pointer-events: auto;
+    background: var(--card);
+    border: 1px solid var(--border);
+  }
+  .toast-premium-success {
+    border-left: 5px solid var(--accent);
+    color: var(--accent);
+    background: #0d1714;
+  }
+  .toast-premium-error {
+    border-left: 5px solid var(--danger);
+    color: var(--danger);
+    background: #1c1113;
+    animation: slideIn 0.4s ease forwards, shake 0.4s ease-in-out;
+  }
+  .toast-premium-info {
+    border-left: 5px solid var(--warn);
+    color: var(--warn);
+    background: #1c160e;
+  }
 </style>
 </head>
 <body>
+
+<!-- NUEVO: Contenedor flotante superior derecho para los Toasts animados -->
+<div id="toast-notif-container" style="position: fixed; top: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; pointer-events: none;"></div>
 
 <!-- NAV -->
 <nav>
@@ -245,6 +348,34 @@
   </div>
   <div class="cart-items" id="cart-items"></div>
   <div class="cart-footer">
+    
+   <!-- Contenedor del cupón inyectado justo encima del total -->
+    <div class="coupon-container" id="coupon-container" style="display: none;">
+      
+      <!-- Botón interactivo para el Cofre Sorpresa -->
+      <div style="margin-bottom: 12px; text-align: center;">
+        <button id="btn-cofre" type="button" style="background: var(--card); border: 2px dashed var(--accent); color: var(--accent); padding: 8px 12px; border-radius: 8px; cursor: pointer; font-family: var(--mono); font-size: 0.75rem; font-weight: bold; width: 100%; transition: all var(--t);">
+            🎁 ¡Abrir Cofre Sorpresa!
+        </button>
+      </div>
+
+      <!-- MODIFICADO: El texto ahora es un botón interactivo -->
+      <button type="button" onclick="togglePistasCupon()" style="background: none; border: none; padding: 0; display: block; font-family: var(--mono); color: var(--muted); font-size: 0.72rem; margin-bottom: 6px; letter-spacing: 0.02em; cursor: pointer; text-align: left; transition: color var(--t);" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--muted)'">
+        ¿TIENES UN CUPÓN? <span id="flecha-pistas" style="font-size: 0.6rem; margin-left: 4px;">▶</span>
+      </button>
+
+      <!-- NUEVO: Mensaje de la Opción B oculto por defecto -->
+      <div id="pistas-cupon-texto" style="display: none; font-family: var(--mono); font-size: 0.68rem; color: var(--warn); background: rgba(245,166,35,0.05); border: 1px dashed rgba(245,166,35,0.2); padding: 8px; border-radius: 6px; margin-bottom: 10px; line-height: 1.4;">
+        💡 Pistas: Prueba escribiendo los códigos del equipo: <strong>DIEGO</strong>, <strong>JUANITO</strong> o <strong>ANGIE</strong> para activar descuentos especiales.
+      </div>
+
+      <div class="coupon-row">
+        <input type="text" id="cart-coupon-input" class="coupon-input">
+        <button onclick="aplicarCuponCarrito()" class="coupon-apply-btn">aplicar</button>
+      </div>
+      <div id="cart-coupon-msg" class="coupon-msg"></div>
+    </div>
+
     <div class="cart-total">
       <span class="cart-total-label">TOTAL</span>
       <span class="cart-total-amount" id="cart-total">$0.00</span>
@@ -270,6 +401,13 @@
       <div class="order-summary">
         <div class="order-summary-label">// RESUMEN DEL PEDIDO</div>
         <div id="modal-items"></div>
+        
+        <!-- NUEVO: Línea de descuento en el desglose final del modal si aplica -->
+        <div id="modal-discount-line" class="order-line" style="display: none; color: var(--danger);">
+          <span id="modal-discount-lbl">Descuento</span>
+          <span id="modal-discount-val">-$0.00</span>
+        </div>
+
         <div class="order-line total">
           <span>Total</span>
           <span id="modal-total">$0.00</span>
@@ -282,8 +420,6 @@
   </div>
 </div>
 
-<!-- TOAST -->
-<div id="toast-container"></div>
 
 <script>
 // ── PRODUCTOS ──────────────────────────────────────────────────────────────
@@ -295,16 +431,22 @@ const PRODUCTS = [
   { id:5, icon:'🔌', name:'Hub USB-C 8-en-1',           specs:'HDMI 4K · PD 100W · Gigabit Ethernet',      price:34.00, category:'conectividad',   stock:'en stock' },
   { id:6, icon:'🎧', name:'Auriculares ANC Studio',     specs:'40h batería · Bluetooth 5.3 · ANC híbrido', price:119.00,category:'audio',          stock:'en stock' },
   { id:7, icon:'📡', name:'Adaptador WiFi 6E AX3000',  specs:'USB 3.0 · 2.4/5/6 GHz · MU-MIMO',          price:42.00, category:'conectividad',   stock:'en stock' },
-  { id:8, icon:'🖨️', name:'Mousepad XL Premium',       specs:'900×400 · cosido · base antideslizante',    price:22.00, category:'periférico',     stock:'en stock' },
+  { id:8, icon:'🖨️', name:'Mousepad XL Premium',        specs:'900×400 · cosido · base antideslizante',    price:22.00, category:'periférico',     stock:'en stock' },
   { id:9, icon:'📹', name:'Webcam 4K AutoFocus',        specs:'60fps · HDR · micrófono dual',              price:87.00, category:'video',          stock:'stock bajo'},
 ];
 
 // ── CARRITO ────────────────────────────────────────────────────────────────
 let cart = {};
 let ppbInstance = null;
+// MODIFICADO: Ahora guardamos el valor decimal del descuento (0.20 para Diego, 0.30 Juanito, 0.50 Angie)
+let porcentajeDescuento = 0.00;
 
 const getCart  = () => Object.values(cart);
-const getTotal = () => getCart().reduce((s, i) => s + i.price * i.qty, 0);
+// MODIFICADO: El total descuenta el porcentaje dinámico asignado
+const getTotal = () => {
+  const subtotal = getCart().reduce((s, i) => s + i.price * i.qty, 0);
+  return subtotal * (1 - porcentajeDescuento);
+};
 
 function addToCart(id) {
   const p = PRODUCTS.find(x => x.id === id);
@@ -339,6 +481,17 @@ function updateUI() {
   document.getElementById('cart-total').textContent  = `$${total.toFixed(2)}`;
   document.getElementById('pay-btn').disabled        = items.length === 0;
 
+  // Mostrar la sección de cupón solo si hay productos en el carrito
+  const couponSection = document.getElementById('coupon-container');
+  if (items.length === 0) {
+    couponSection.style.display = "none";
+    porcentajeDescuento = 0.00; // Resetear
+    document.getElementById('cart-coupon-input').value = "";
+    document.getElementById('cart-coupon-msg').style.display = "none";
+  } else {
+    couponSection.style.display = "block";
+  }
+
   const container = document.getElementById('cart-items');
   if (items.length === 0) {
     container.innerHTML = `<div class="cart-empty"><div class="cart-empty-icon">🛒</div>Tu carrito está vacío</div>`;
@@ -357,6 +510,76 @@ function updateUI() {
         </div>
       </div>
     `).join('');
+  }
+}
+
+// NUEVO: Función para mostrar/ocultar las pistas de los cupones
+function togglePistasCupon() {
+  const contenedorTexto = document.getElementById('pistas-cupon-texto');
+  const flecha = document.getElementById('flecha-pistas');
+  
+  if (contenedorTexto.style.display === "none") {
+    contenedorTexto.style.display = "block";
+    flecha.textContent = "▼"; // Cambia la flecha hacia abajo cuando se abre
+    showToast('Pistas de cupones desplegadas', 'info', 2000);
+  } else {
+    contenedorTexto.style.display = "none";
+    flecha.textContent = "▶"; // Vuelve a la flecha original
+  }
+}
+
+// MODIFICADO: Lógica multi-cupón dinámica con Diego (20%), Juanito (30%) y Angie (50%)
+function aplicarCuponCarrito() {
+  const input = document.getElementById('cart-coupon-input').value.trim().toUpperCase();
+  const msg = document.getElementById('cart-coupon-msg');
+  
+  msg.style.display = "block";
+  
+  if (input === "DIEGO") {
+    porcentajeDescuento = 0.20;
+    msg.style.color = "var(--accent)";
+    msg.innerText = "✓ Cupón DIEGO aplicado: 20%";
+    showToast('Cupón de Diego aplicado (20%)', 'success');
+    updateUI();
+  } else if (input === "JUANITO") {
+    porcentajeDescuento = 0.30;
+    msg.style.color = "var(--accent)";
+    msg.innerText = "✓ Cupón JUANITO aplicado: 30%";
+    showToast('Cupón de Juanito aplicado (30%)', 'success');
+    updateUI();
+  } else if (input === "ANGIE") {
+    porcentajeDescuento = 0.50;
+    msg.style.color = "var(--accent)";
+    msg.innerText = "✓ Cupón ANGIE aplicado: 50% 🔥";
+    showToast('¡Cupón de Angie aplicado (50%)!', 'success');
+    updateUI();
+  } 
+  // ── NUEVOS CUPONES EXCLUSIVOS DEL COFRE ──
+  else if (input === "NODE10") {
+    porcentajeDescuento = 0.10;
+    msg.style.color = "var(--accent)";
+    msg.innerText = "🎁 ¡Suerte! Cupón secreto NODE10 aplicado: 10%";
+    updateUI();
+  } else if (input === "NODE15") {
+    porcentajeDescuento = 0.15;
+    msg.style.color = "var(--accent)";
+    msg.innerText = "🎁 ¡Genial! Cupón secreto NODE15 aplicado: 15%";
+    updateUI();
+  } else if (input === "NODEX") {
+    porcentajeDescuento = 0.25;
+    msg.style.color = "var(--accent)";
+    msg.innerText = "🔥 ¡PREMIO MAYOR! Cupón secreto NODEX aplicado: 25%";
+    updateUI();
+  } 
+  // ─────────────────────────────────────────
+  else if (input === "") {
+    msg.style.color = "var(--warn)";
+    msg.innerText = "Escribe un código.";
+  } else {
+    porcentajeDescuento = 0.00;
+    msg.style.color = "var(--danger)";
+    msg.innerText = "Cupón no válido o vencido.";
+    updateUI();
   }
 }
 
@@ -395,6 +618,10 @@ function toggleCart() {
 
 // ── MODAL + CAJITA DE PAGOS ────────────────────────────────────────────────
 async function openPaymentModal() {
+  // NUEVO: Guardar el subtotal original antes de cualquier descuento en sessionStorage
+  const subtotalBase = getCart().reduce((s, i) => s + i.price * i.qty, 0);
+  sessionStorage.setItem('node_subtotal', subtotalBase);
+
   const items = getCart();
   const total = getTotal();
 
@@ -402,6 +629,19 @@ async function openPaymentModal() {
   document.getElementById('modal-items').innerHTML = items.map(i =>
     `<div class="order-line"><span>${i.name} × ${i.qty}</span><span>$${(i.price*i.qty).toFixed(2)}</span></div>`
   ).join('');
+
+  // MODIFICADO: Mostrar línea de descuento proporcional al cupón activo en el modal
+  const discLine = document.getElementById('modal-discount-line');
+  if (porcentajeDescuento > 0) {
+    const subtotalFicticio = items.reduce((s, i) => s + i.price * i.qty, 0);
+    const ahorro = subtotalFicticio * porcentajeDescuento;
+    document.getElementById('modal-discount-lbl').textContent = `Descuento cupón (${porcentajeDescuento * 100}%)`;
+    document.getElementById('modal-discount-val').textContent = `-$${ahorro.toFixed(2)}`;
+    discLine.style.display = "flex";
+  } else {
+    discLine.style.display = "none";
+  }
+
   document.getElementById('modal-total').textContent = `$${total.toFixed(2)}`;
 
   // Limpiar cajita anterior si existía
@@ -421,19 +661,17 @@ async function openPaymentModal() {
     return;
   }
 
-  // Monto en centavos (sin impuestos en este ejemplo)
+  // Monto en centavos recalculado con el descuento correspondiente
   const amountCents = Math.round(total * 100);
   const clientTxId  = 'NODE-' + Date.now().toString(36).toUpperCase();
 
   // Renderizar la cajita de Payphone usando el SDK oficial
-  // Según docs: window.addEventListener('DOMContentLoaded') ya pasó,
-  // así que instanciamos directamente.
   try {
     ppbInstance = new PPaymentButtonBox({
       token:               token,
       clientTransactionId: clientTxId,
-      amount:              amountCents,       // total en centavos
-      amountWithoutTax:    amountCents,       // sin impuesto
+      amount:              amountCents,       
+      amountWithoutTax:    amountCents,       
       currency:            "USD",
       storeId:             storeId,
       reference:           `Compra NODE/// — ${clientTxId}`,
@@ -450,20 +688,78 @@ async function openPaymentModal() {
 }
 
 function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('remove');
   document.getElementById('modal-overlay').classList.remove('open');
   document.getElementById('pp-button').innerHTML = '';
   ppbInstance = null;
 }
 
 // ── TOAST ──────────────────────────────────────────────────────────────────
-function showToast(msg, type = 'info', ms = 3500) {
-  const c = document.getElementById('toast-container');
-  const t = document.createElement('div');
-  t.className = `toast ${type}`;
-  t.textContent = msg;
-  c.appendChild(t);
-  setTimeout(() => t.remove(), ms);
+// REEMPLAZADO: Nueva función showToast optimizada con animaciones avanzadas y Audio Sintetizado Nativo
+function showToast(msg, type = 'info', ms = 4000) {
+  const container = document.getElementById('toast-notif-container');
+  if (!container) return;
+
+  const toast = document.createElement('div');
+  const mapType = type === 'success' ? 'success' : type === 'error' ? 'error' : 'info';
+  toast.className = `toast-premium toast-premium-${mapType}`;
+  
+  const icon = mapType === 'success' ? '✅' : mapType === 'error' ? '❌' : 'ℹ️';
+  toast.innerHTML = `<span>${icon}</span><span>${msg}</span>`;
+  
+  container.appendChild(toast);
+
+  // Sistema de Audio Web Sintetizado (Nativo del navegador)
+  try {
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const oscillator = audioCtx.createOscillator();
+    const gainNode = audioCtx.createGain();
+    oscillator.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
+    
+    if (mapType === 'success') {
+      oscillator.frequency.setValueAtTime(587.33, audioCtx.currentTime); 
+      oscillator.frequency.setValueAtTime(880.00, audioCtx.currentTime + 0.08); 
+      gainNode.gain.setValueAtTime(0.05, audioCtx.currentTime);
+      oscillator.start();
+      oscillator.stop(audioCtx.currentTime + 0.18);
+    } else if (mapType === 'error') {
+      oscillator.frequency.setValueAtTime(180, audioCtx.currentTime);
+      oscillator.frequency.exponentialRampToValueAtTime(80, audioCtx.currentTime + 0.2);
+      gainNode.gain.setValueAtTime(0.15, audioCtx.currentTime);
+      oscillator.start();
+      oscillator.stop(audioCtx.currentTime + 0.22);
+    }
+  } catch (e) { console.warn("Audio Context bloqueado o no soportado."); }
+
+  setTimeout(() => {
+    toast.style.transition = "all 0.4s ease";
+    toast.style.opacity = "0";
+    toast.style.transform = "translateX(50px)";
+    setTimeout(() => toast.remove(), 400);
+  }, ms);
 }
+
+// MODIFICADO: Ahora el cofre da cupones exclusivos que no te sabes
+document.addEventListener('DOMContentLoaded', () => {
+  const btnCofre = document.getElementById('btn-cofre');
+  if (btnCofre) {
+    btnCofre.addEventListener('click', () => {
+      // Cupones de la suerte aleatorios
+      const opciones = ['NODE10', 'NODE15', 'NODEX'];
+      const cupónAleatorio = opciones[Math.floor(Math.random() * opciones.length)];
+      
+      const input = document.getElementById('cart-coupon-input');
+      if (input) {
+        input.value = cupónAleatorio;
+        showToast(`🎁 ¡Cofre abierto! Te ganaste el cupón secreto: ${cupónAleatorio}`, 'success');
+        
+        // Lo aplica automáticamente en la caja
+        aplicarCuponCarrito();
+      }
+    });
+  }
+});
 
 // ── INIT ───────────────────────────────────────────────────────────────────
 renderCatalog();
