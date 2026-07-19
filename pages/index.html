@@ -424,15 +424,15 @@
 <script>
 // ── PRODUCTOS ──────────────────────────────────────────────────────────────
 const PRODUCTS = [
-  { id:1, icon:'⌨️', name:'Teclado mecánico NODE-60',   specs:'Hot-swap · switches lineales · RGB per-key', price:65.00, category:'periférico',     stock:'en stock' },
-  { id:2, icon:'🖱️', name:'Mouse inalámbrico Vector',   specs:'26000 DPI · 4K polling · 58g',              price:49.90, category:'periférico',     stock:'en stock' },
-  { id:3, icon:'🖥️', name:'Monitor 27" QHD 165Hz',      specs:'IPS · 1ms GtG · USB-C 90W',                price:289.00,category:'video',          stock:'stock bajo'},
-  { id:4, icon:'💾', name:'SSD NVMe 1TB Gen4',          specs:'7000 MB/s lectura · PCIe 4.0',              price:79.50, category:'almacenamiento', stock:'en stock' },
-  { id:5, icon:'🔌', name:'Hub USB-C 8-en-1',           specs:'HDMI 4K · PD 100W · Gigabit Ethernet',      price:34.00, category:'conectividad',   stock:'en stock' },
-  { id:6, icon:'🎧', name:'Auriculares ANC Studio',     specs:'40h batería · Bluetooth 5.3 · ANC híbrido', price:119.00,category:'audio',          stock:'en stock' },
-  { id:7, icon:'📡', name:'Adaptador WiFi 6E AX3000',  specs:'USB 3.0 · 2.4/5/6 GHz · MU-MIMO',          price:42.00, category:'conectividad',   stock:'en stock' },
-  { id:8, icon:'🖨️', name:'Mousepad XL Premium',        specs:'900×400 · cosido · base antideslizante',    price:22.00, category:'periférico',     stock:'en stock' },
-  { id:9, icon:'📹', name:'Webcam 4K AutoFocus',        specs:'60fps · HDR · micrófono dual',              price:87.00, category:'video',          stock:'stock bajo'},
+  { id:1, icon:'⌨️', name:'Teclado mecánico NODE-60',   specs:'Hot-swap · switches lineales · RGB per-key', price:65.00, category:'periférico',     stockQty:8 },
+  { id:2, icon:'🖱️', name:'Mouse inalámbrico Vector',   specs:'26000 DPI · 4K polling · 58g',              price:49.90, category:'periférico',     stockQty:10 },
+  { id:3, icon:'🖥️', name:'Monitor 27" QHD 165Hz',      specs:'IPS · 1ms GtG · USB-C 90W',                price:289.00,category:'video',          stockQty:2 },
+  { id:4, icon:'💾', name:'SSD NVMe 1TB Gen4',          specs:'7000 MB/s lectura · PCIe 4.0',              price:79.50, category:'almacenamiento', stockQty:7 },
+  { id:5, icon:'🔌', name:'Hub USB-C 8-en-1',           specs:'HDMI 4K · PD 100W · Gigabit Ethernet',      price:34.00, category:'conectividad',   stockQty:12 },
+  { id:6, icon:'🎧', name:'Auriculares ANC Studio',     specs:'40h batería · Bluetooth 5.3 · ANC híbrido', price:119.00,category:'audio',          stockQty:6 },
+  { id:7, icon:'📡', name:'Adaptador WiFi 6E AX3000',  specs:'USB 3.0 · 2.4/5/6 GHz · MU-MIMO',          price:42.00, category:'conectividad',   stockQty:9 },
+  { id:8, icon:'🖨️', name:'Mousepad XL Premium',        specs:'900×400 · cosido · base antideslizante',    price:22.00, category:'periférico',     stockQty:15 },
+  { id:9, icon:'📹', name:'Webcam 4K AutoFocus',        specs:'60fps · HDR · micrófono dual',              price:87.00, category:'video',          stockQty:2 },
 ];
 
 // ── CARRITO ────────────────────────────────────────────────────────────────
@@ -442,6 +442,12 @@ let ppbInstance = null;
 let porcentajeDescuento = 0.00;
 
 const getCart  = () => Object.values(cart);
+const getProductById = id => PRODUCTS.find(product => product.id === id);
+const getStockLimit = id => {
+  const product = getProductById(id);
+  return product ? product.stockQty : 0;
+};
+const getCartQty = id => cart[id] ? cart[id].qty : 0;
 // MODIFICADO: El total descuenta el porcentaje dinámico asignado
 const getTotal = () => {
   const subtotal = getCart().reduce((s, i) => s + i.price * i.qty, 0);
@@ -449,8 +455,21 @@ const getTotal = () => {
 };
 
 function addToCart(id) {
-  const p = PRODUCTS.find(x => x.id === id);
+  const p = getProductById(id);
   if (!p) return;
+  const currentQty = getCartQty(id);
+  const stockLimit = getStockLimit(id);
+
+  if (stockLimit <= 0) {
+    showToast(`No hay stock disponible para ${p.name}`, 'error');
+    return;
+  }
+
+  if (currentQty >= stockLimit) {
+    showToast(`Solo hay ${stockLimit} unidades de ${p.name}`, 'error');
+    return;
+  }
+
   cart[id] ? cart[id].qty++ : (cart[id] = { ...p, qty: 1 });
   updateUI();
   bumpCount();
@@ -459,6 +478,12 @@ function addToCart(id) {
 
 function changeQty(id, delta) {
   if (!cart[id]) return;
+  const stockLimit = getStockLimit(id);
+  if (delta > 0 && cart[id].qty >= stockLimit) {
+    showToast(`Solo hay ${stockLimit} unidades de ${cart[id].name}`, 'error');
+    return;
+  }
+
   cart[id].qty += delta;
   if (cart[id].qty <= 0) delete cart[id];
   updateUI();
@@ -585,7 +610,7 @@ function aplicarCuponCarrito() {
 
 // ── CATALOG ────────────────────────────────────────────────────────────────
 function stockClass(s) {
-  return s === 'en stock' ? 'badge-stock' : s === 'stock bajo' ? 'badge-low' : 'badge-out';
+  return s > 2 ? 'badge-stock' : s > 0 ? 'badge-low' : 'badge-out';
 }
 function renderCatalog(filter = 'all') {
   const list = filter === 'all' ? PRODUCTS : PRODUCTS.filter(p => p.category === filter);
@@ -593,13 +618,13 @@ function renderCatalog(filter = 'all') {
     <div class="product-card">
       <div class="card-top">
         <div class="product-icon">${p.icon}</div>
-        <span class="stock-badge ${stockClass(p.stock)}">${p.stock}</span>
+        <span class="stock-badge ${stockClass(p.stockQty)}">${p.stockQty > 2 ? 'en stock' : p.stockQty > 0 ? 'stock bajo' : 'sin stock'}</span>
       </div>
       <div class="product-name">${p.name}</div>
       <div class="product-specs">${p.specs}</div>
       <div class="card-bottom">
         <div class="price">$${p.price.toFixed(2)}<span class="price-currency">USD</span></div>
-        <button class="add-btn" onclick="addToCart(${p.id})" ${p.stock==='sin stock'?'disabled':''}>+ añadir</button>
+        <button class="add-btn" onclick="addToCart(${p.id})" ${p.stockQty <= 0 ? 'disabled' : ''}>+ añadir</button>
       </div>
     </div>
   `).join('');
