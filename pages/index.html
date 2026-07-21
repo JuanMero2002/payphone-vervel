@@ -651,7 +651,7 @@ async function openPaymentModal() {
   document.getElementById('modal-overlay').classList.add('open');
 
   // Obtener credenciales del servidor
-  let token = '', storeId = '';
+  let token = '', storeId = ''; // Variables para almacenar token y storeId
   try {
     const cfg = await fetch('/api/config').then(r => r.json());
     token   = cfg.token;
