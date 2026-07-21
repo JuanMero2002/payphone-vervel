@@ -1,18 +1,21 @@
-# Archivos generados por Python
+# Python
 __pycache__/
 *.py[cod]
 
-# Entornos virtuales
+# Entorno virtual
 .venv/
 venv/
+
+# Caché de pytest
+.pytest_cache/
 
 # Variables sensibles
 .env
 
-# Configuración local de Vercel
+# Vercel local
 .vercel/
 
-# Archivos del sistema/editor
+# Editor y sistema
+.vscode/
 .DS_Store
 Thumbs.db
-.vscode/
