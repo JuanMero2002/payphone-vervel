@@ -148,6 +148,7 @@ async function confirmarPago() {
       }
     }
 
+    // Renderizar el resultado final en la tarjeta
     card.innerHTML = `
       <div class="result-icon">${approved ? '✅' : cancelled ? '❌' : '⚠️'}</div>
       <div class="result-title ${approved ? 'approved' : cancelled ? 'cancelled' : 'pending'}">
