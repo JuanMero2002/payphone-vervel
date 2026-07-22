@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+
+# Entorno virtual
+.venv/
+venv/
+
+# Caché de pytest
+.pytest_cache/
+
+# Variables sensibles
+.env
+
+# Vercel local
+.vercel/
+
+# Editor y sistema
+.vscode/
+.DS_Store
+Thumbs.db
